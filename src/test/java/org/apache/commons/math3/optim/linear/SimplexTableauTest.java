@@ -18,6 +18,7 @@ package org.apache.commons.math3.optim.linear;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.apache.commons.math3.TestUtils;
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.junit.Assert;
@@ -28,7 +29,7 @@ public class SimplexTableauTest {
     @Test
     public void testInitialization() {
         LinearObjectiveFunction f = createFunction();
-        Collection<LinearConstraint> constraints = createConstraints();
+        List<LinearConstraint> constraints = createConstraints();
         SimplexTableau tableau =
             new SimplexTableau(f, constraints, GoalType.MAXIMIZE, false, 1.0e-6);
         double[][] expectedInitialTableau = {
@@ -44,7 +45,7 @@ public class SimplexTableauTest {
     @Test
     public void testDropPhase1Objective() {
         LinearObjectiveFunction f = createFunction();
-        Collection<LinearConstraint> constraints = createConstraints();
+        List<LinearConstraint> constraints = createConstraints();
         SimplexTableau tableau =
             new SimplexTableau(f, constraints, GoalType.MAXIMIZE, false, 1.0e-6);
         double[][] expectedTableau = {
@@ -60,7 +61,7 @@ public class SimplexTableauTest {
     @Test
     public void testTableauWithNoArtificialVars() {
         LinearObjectiveFunction f = new LinearObjectiveFunction(new double[] {15, 10}, 0);
-        Collection<LinearConstraint> constraints = new ArrayList<LinearConstraint>();
+        List<LinearConstraint> constraints = new ArrayList<LinearConstraint>();
         constraints.add(new LinearConstraint(new double[] {1, 0}, Relationship.LEQ, 2));
         constraints.add(new LinearConstraint(new double[] {0, 1}, Relationship.LEQ, 3));
         constraints.add(new LinearConstraint(new double[] {1, 1}, Relationship.LEQ, 4));
@@ -78,7 +79,7 @@ public class SimplexTableauTest {
     @Test
     public void testSerial() {
         LinearObjectiveFunction f = createFunction();
-        Collection<LinearConstraint> constraints = createConstraints();
+        List<LinearConstraint> constraints = createConstraints();
         SimplexTableau tableau =
             new SimplexTableau(f, constraints, GoalType.MAXIMIZE, false, 1.0e-6);
         Assert.assertEquals(tableau, TestUtils.serializeAndRecover(tableau));
@@ -88,8 +89,8 @@ public class SimplexTableauTest {
         return new LinearObjectiveFunction(new double[] {15, 10}, 0);
     }
 
-    private Collection<LinearConstraint> createConstraints() {
-        Collection<LinearConstraint> constraints = new ArrayList<LinearConstraint>();
+    private List<LinearConstraint> createConstraints() {
+        List<LinearConstraint> constraints = new ArrayList<LinearConstraint>();
         constraints.add(new LinearConstraint(new double[] {1, 0}, Relationship.LEQ, 2));
         constraints.add(new LinearConstraint(new double[] {0, 1}, Relationship.LEQ, 3));
         constraints.add(new LinearConstraint(new double[] {1, 1}, Relationship.EQ, 4));

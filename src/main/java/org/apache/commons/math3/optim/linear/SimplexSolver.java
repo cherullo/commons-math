@@ -17,6 +17,7 @@
 package org.apache.commons.math3.optim.linear;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.math3.exception.TooManyIterationsException;
@@ -333,7 +334,25 @@ public class SimplexSolver extends LinearOptimizer {
         throws TooManyIterationsException,
                UnboundedSolutionException,
                NoFeasibleSolutionException {
+        SimplexTableau tableau = getOptimalTableau();
 
+        return tableau.getSolution();
+    }
+    
+    public SimplexSolution doOptimizeExtra(OptimizationData... data)
+            throws TooManyIterationsException,
+            UnboundedSolutionException,
+            NoFeasibleSolutionException {
+        
+        parseOptimizationData(data);
+        
+        SimplexTableau tableau = getOptimalTableau();
+        
+        return new SimplexSolution(tableau.getSolution(), getExtraConstraintInfo(tableau), getCoefficientSensitivity(tableau));
+    }
+    
+    private SimplexTableau getOptimalTableau()
+    {
         // reset the tableau to indicate a non-feasible solution in case
         // we do not pass phase 1 successfully
         if (solutionCallback != null) {
@@ -360,6 +379,146 @@ public class SimplexSolver extends LinearOptimizer {
         while (!tableau.isOptimal()) {
             doIteration(tableau);
         }
-        return tableau.getSolution();
+        
+        return tableau;
+    }
+    
+    private HashMap<LinearConstraint, ExtraConstraintInfo> getExtraConstraintInfo(SimplexTableau tableau) {
+        
+        HashMap<LinearConstraint, ExtraConstraintInfo> constraintMap = new HashMap<LinearConstraint, ExtraConstraintInfo>();
+        
+        Double shadowPrice;
+        Double lowerBound;
+        Double upperBound;
+        
+        int slackVariableCount = 0;
+        List<LinearConstraint> originalConstraints = tableau.getOriginalConstraints();
+        
+        for (int constraintIndex = 0; constraintIndex < originalConstraints.size(); constraintIndex++)
+        {
+            LinearConstraint constraint = originalConstraints.get(constraintIndex);
+                    
+            if (constraint.getRelationship() == Relationship.EQ)
+            {
+                continue;
+            }
+            
+            int column = tableau.getSlackVariableOffset() + slackVariableCount;
+            slackVariableCount++;
+            
+            shadowPrice = -1d * tableau.getEntry(0, column);
+            
+            Integer row = tableau.getBasicRow(column);
+            
+            if (row != null) // Basic variable
+            {
+                Double rhs = tableau.getEntry(row, tableau.getRhsOffset());
+                lowerBound = -rhs;
+                upperBound = rhs;
+            }
+            else
+            {
+                Double[] bounds = findBounds(tableau, column, (constraint.getRelationship() == Relationship.LEQ) ? -1d : 1d);
+                lowerBound = bounds[0];
+                upperBound = bounds[1];
+            }
+            
+            ExtraConstraintInfo extraConstraintInfo = new ExtraConstraintInfo(shadowPrice, 
+                    lowerBound == Double.NEGATIVE_INFINITY ? null : (constraint.getValue() + lowerBound), 
+                    upperBound == Double.POSITIVE_INFINITY ? null : (constraint.getValue() + upperBound));
+            
+            constraintMap.put (constraint, extraConstraintInfo);
+        }        
+        
+        return constraintMap;
+    }
+    
+    private CoefficientBounds[] getCoefficientSensitivity(SimplexTableau tableau) {
+        
+        double[] coefficients = getFunction().getCoefficients().toArray();
+        
+        int numObjectiveFunctions = tableau.getNumObjectiveFunctions();
+        
+        int originalNumDecisionVariables = tableau.getOriginalNumDecisionVariables();
+        
+        CoefficientBounds[] ret = new CoefficientBounds[originalNumDecisionVariables];
+        
+        for (int i = 0; i < originalNumDecisionVariables; i++)
+        {
+            int column = numObjectiveFunctions + i;
+            
+            Integer k = tableau.getBasicRow(column);
+            
+            if (k == null)
+            {
+                double reducedCost = tableau.getEntry(0, column);
+                
+                ret[i] = new CoefficientBounds(coefficients[i], null, coefficients[i] - reducedCost);
+            }
+            else
+            {
+                double max = Double.NEGATIVE_INFINITY;
+                double min = Double.POSITIVE_INFINITY;
+
+                for (int j = 0; j < tableau.getRhsOffset(); j++)
+                {
+                    double akj = tableau.getEntry(k, numObjectiveFunctions + j);
+
+                    if (Precision.equals(0d, akj, epsilon)) 
+                       continue;
+
+                    double ratio = tableau.getEntry(0, numObjectiveFunctions + j) / akj;
+
+                    if (akj > 0d)
+                    {
+                        max = Math.max (max, ratio);
+                    }
+                    else
+                    {
+                        min = Math.min (min, ratio);
+                    }
+                }
+
+                ret[i] = new CoefficientBounds(coefficients[i], 
+                            min == Double.POSITIVE_INFINITY ? null : (coefficients[i] + min),
+                            max == Double.NEGATIVE_INFINITY ? null : (coefficients[i] + max));
+
+            }
+        }
+        
+        return ret;        
+    }
+    
+    private Double[] findBounds(SimplexTableau tableau, int column, double multiplier) {
+        
+        Double min = Double.NEGATIVE_INFINITY;
+        Double max = Double.POSITIVE_INFINITY;
+        
+        for (int row = tableau.getNumObjectiveFunctions(); row < tableau.getHeight(); row++)
+        {
+            double bi = tableau.getEntry(row, tableau.getRhsOffset());
+            
+            if (Precision.equals(bi, 0d, epsilon))
+                continue;
+            
+            double betaik = tableau.getEntry(row, column);
+            
+            if (Precision.equals(0d, betaik, epsilon) || 
+                Precision.equals(1d, betaik, epsilon))
+                continue;
+            
+            double ratio = multiplier * (bi / betaik);
+            
+            if (ratio < 0) // betaik > 0
+            {
+                min = Math.max(min, ratio);
+            }
+            else
+            {
+                max = Math.min(max, ratio);
+            }
+        }
+        
+        return new Double[] { min, max};
     }
 }

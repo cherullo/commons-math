@@ -856,7 +856,7 @@ public class SimplexSolverTest {
          *
          * @return the constraints.
          */
-        public Collection<LinearConstraint> getConstraints() {
+        public List<LinearConstraint> getConstraints() {
             return Collections.unmodifiableList(linearConstraints);
         }
     }

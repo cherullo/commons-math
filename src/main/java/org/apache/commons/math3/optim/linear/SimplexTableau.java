@@ -73,6 +73,9 @@ class SimplexTableau implements Serializable {
     private final LinearObjectiveFunction f;
 
     /** Linear constraints. */
+    private final List<LinearConstraint> originalConstraints;
+    
+    /** Linear constraints. */
     private final List<LinearConstraint> constraints;
 
     /** Whether to restrict the variables to non-negative values. */
@@ -113,7 +116,7 @@ class SimplexTableau implements Serializable {
      * @param epsilon Amount of error to accept when checking for optimality.
      */
     SimplexTableau(final LinearObjectiveFunction f,
-                   final Collection<LinearConstraint> constraints,
+                   final List<LinearConstraint> constraints,
                    final GoalType goalType,
                    final boolean restrictToNonNegative,
                    final double epsilon) {
@@ -131,7 +134,7 @@ class SimplexTableau implements Serializable {
      * @param maxUlps amount of error to accept in floating point comparisons
      */
     SimplexTableau(final LinearObjectiveFunction f,
-                   final Collection<LinearConstraint> constraints,
+                   final List<LinearConstraint> constraints,
                    final GoalType goalType,
                    final boolean restrictToNonNegative,
                    final double epsilon,
@@ -150,14 +153,18 @@ class SimplexTableau implements Serializable {
      * @param cutOff the cut-off value for tableau entries
      */
     SimplexTableau(final LinearObjectiveFunction f,
-                   final Collection<LinearConstraint> constraints,
+                   final List<LinearConstraint> constraints,
                    final GoalType goalType,
                    final boolean restrictToNonNegative,
                    final double epsilon,
                    final int maxUlps,
                    final double cutOff) {
         this.f                      = f;
-        this.constraints            = normalizeConstraints(constraints);
+        
+        this.originalConstraints    = new ArrayList<LinearConstraint>();
+        this.constraints            = new ArrayList<LinearConstraint>();
+        normalizeConstraints(constraints);
+        
         this.restrictToNonNegative  = restrictToNonNegative;
         this.epsilon                = epsilon;
         this.maxUlps                = maxUlps;
@@ -268,12 +275,11 @@ class SimplexTableau implements Serializable {
      * @param originalConstraints original (not normalized) constraints
      * @return new versions of the constraints
      */
-    public List<LinearConstraint> normalizeConstraints(Collection<LinearConstraint> originalConstraints) {
-        List<LinearConstraint> normalized = new ArrayList<LinearConstraint>(originalConstraints.size());
+    public void normalizeConstraints(List<LinearConstraint> originalConstraints) {
         for (LinearConstraint constraint : originalConstraints) {
-            normalized.add(normalize(constraint));
+            this.constraints.add(normalize(constraint));
+            this.originalConstraints.add(constraint);
         }
-        return normalized;
     }
 
     /**
@@ -596,6 +602,16 @@ class SimplexTableau implements Serializable {
         return tableau.getData();
     }
 
+    /**
+     * Get the original constraints list
+     * @return the original constraints
+     */
+
+    protected final List<LinearConstraint> getOriginalConstraints()
+    {
+        return originalConstraints;
+    }
+    
     @Override
     public boolean equals(Object other) {
 
@@ -652,5 +668,27 @@ class SimplexTableau implements Serializable {
       throws ClassNotFoundException, IOException {
         ois.defaultReadObject();
         MatrixUtils.deserializeRealMatrix(this, "tableau", ois);
+    }
+    
+    public void print()
+    {
+        for (String label : columnLabels)
+            System.out.print (label + "\t");
+        
+        System.out.println ("");
+        
+        for (int i = 0; i < getHeight(); i++)
+        {
+            for (int j = 0; j < getWidth(); j++)
+            {
+                System.out.print(getEntry(i, j) + "\t");
+            }
+            System.out.println ("");
+        }
+    }
+    
+    public String getColumnLabel (int index)
+    {
+        return columnLabels.get(index);
     }
 }
